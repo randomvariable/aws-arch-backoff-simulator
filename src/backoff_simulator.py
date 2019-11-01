@@ -36,6 +36,14 @@ class ExpoBackoffEqualJitter(Backoff):
     def backoff(self, n):
         v = self.expo(n)
         return v/2 + random.uniform(0, v/2)
+
+class KubeJitter(Backoff):
+    def expo(self, n):
+        return min(self.cap, pow(1.71, n)*self.base)
+
+    def backoff(self, n):
+        v = self.expo(n) * 0.4
+        return random.uniform(0, v) + v
         
 class ExpoBackoffFullJitter(Backoff):
     def backoff(self, n):
@@ -130,17 +138,15 @@ def setup_sim(clients, backoff_cls, ts_f, stats):
     queue = []
     server = OccServer(net, stats, ts_f)
     for i in xrange(0, clients):
-        client = OccClient(server, net, backoff_cls(5, 2000))
+        client = OccClient(server, net, backoff_cls(1, 150))
         heapq.heappush(queue, client.start(0))
     return (queue, stats)
 
 # The list of backoff types that we simulate over. The tuples are a class
 #  name and a friendly name for the output.
-backoff_types = ((ExpoBackoff, "Exponential"),
-                 (ExpoBackoffDecorr,"Decorr"),
-                 (ExpoBackoffEqualJitter, "EqualJitter"),
+backoff_types = ((ExpoBackoffDecorr,"Decorr"),
                  (ExpoBackoffFullJitter, "FullJitter"),
-                 (NoBackoff, "None"))
+                 (KubeJitter, "KubeJitter"))
 
 def run():
     with open("backoff_results.csv", "w") as f:
